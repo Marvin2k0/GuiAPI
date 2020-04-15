@@ -1,0 +1,9 @@
+<component name="ArtifactManager">
+  <artifact type="jar" build-on-make="true" name="GuiAPI">
+    <output-path>D:/Server 1.12.2/plugins</output-path>
+    <root id="archive" name="GuiAPI.jar">
+      <element id="library" level="project" name="spigot-1.12.2" />
+      <element id="module-output" name="GuiAPI" />
+    </root>
+  </artifact>
+</component>
