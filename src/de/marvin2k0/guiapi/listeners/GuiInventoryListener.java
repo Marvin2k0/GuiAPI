@@ -1,6 +1,7 @@
 package de.marvin2k0.guiapi.listeners;
 
 import de.marvin2k0.guiapi.GuiAPI;
+import de.marvin2k0.guiapi.GuiInventory;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
@@ -21,6 +22,9 @@ public class GuiInventoryListener implements Listener
         if (GuiAPI.isGuiInventory(title))
         {
             event.setCancelled(true);
+            event.getWhoClicked().sendMessage(title);
+
+            GuiInventory gui = GuiAPI.inventoryFromName(title); //TODO: FIX WIRD NICHT GEFUNDEN
         }
     }
 }

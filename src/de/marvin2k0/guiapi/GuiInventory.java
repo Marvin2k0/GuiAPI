@@ -3,12 +3,14 @@ package de.marvin2k0.guiapi;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.event.Listener;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.inventory.meta.SkullMeta;
 import org.bukkit.plugin.Plugin;
 
 import java.io.File;
@@ -25,23 +27,23 @@ public class GuiInventory implements Listener
     private FileConfiguration config;
 
     private Inventory content;
-    private HashMap<ItemStack, GuiInventory> nextPanels;
+    private HashMap<String, GuiInventory> nextPanels = new HashMap<>();
     private boolean hasNext;
 
     private GuiInventory(Inventory inventory)
     {
-        configFile = new File(plugin.getDataFolder().getPath() + "/" + inventory.getTitle() + ".yml");
+        configFile = new File(plugin.getDataFolder().getPath() + "/GUIs/" + inventory.getTitle() + ".yml");
         config = YamlConfiguration.loadConfiguration(configFile);
+        config.set("name", inventory.getTitle());
 
-        try
-        {
-            config.save(configFile);
-        } catch (IOException e)
-        {
-            e.printStackTrace();
-        }
+        saveConfig();
 
         setContent(inventory);
+    }
+
+    public String getName()
+    {
+        return config.getString("name");
     }
 
     /**
@@ -52,7 +54,11 @@ public class GuiInventory implements Listener
      */
     public void setNextPanel(ItemStack navigator, GuiInventory nextPanel)
     {
-        this.nextPanels.put(navigator, nextPanel);
+        this.nextPanels.put(navigator.getItemMeta().getDisplayName(), nextPanel);
+
+        this.config.set("nextPanels", navigator.getItemMeta().getDisplayName() + "-" + nextPanel.getInventory().getName());
+
+        saveConfig();
     }
 
     /**
@@ -77,7 +83,7 @@ public class GuiInventory implements Listener
      * @param inventory The GuiInventory's content.
      * @return The GuiInventory.
      */
-    private GuiInventory setContent(Inventory inventory)
+    public GuiInventory setContent(Inventory inventory)
     {
         this.content = inventory;
         List<String> items = new ArrayList<String>();
@@ -85,20 +91,49 @@ public class GuiInventory implements Listener
         for (ItemStack item : inventory.getContents())
         {
             /* TODO: nullpointer fixen und type in den namen einfügen */
-            items.add(item.getType().toString() + "-" + item.getItemMeta().getDisplayName());
+
+            if (item == null)
+                continue;
+
+            String name = item.getType().toString() + "-" + item.getItemMeta().getDisplayName();
+
+            if (item instanceof GuiItem && ((GuiItem) item).getGuiItemAction() != GuiItemAction.NOTHING)
+            {
+                System.out.println(item.getType().toString() + " ist ein actin item");
+                this.addActionItem((GuiItem) item, 0);
+
+                GuiInventory nextPanel = this.nextPanels.get(item.getItemMeta().getDisplayName());
+                name += "-" + nextPanel.getInventory().getName();
+            }
+            else
+            {
+                System.out.println(item.getType().toString() + " ist KEIN actin item");
+            }
+
+            items.add(name);
         }
 
         config.set("items", items);
 
-        try
-        {
-            config.save(configFile);
-        } catch (IOException e)
-        {
-            e.printStackTrace();
-        }
+        saveConfig();
 
         return this;
+    }
+
+    public void addActionItem(GuiItem actionItem, int slot)
+    {
+        if (actionItem.getGuiItemAction() == GuiItemAction.NEXT_PANEL)
+        {
+            if (!this.nextPanels.containsKey(actionItem.getItemMeta().getDisplayName()))
+                this.nextPanels.put(actionItem.getItemMeta().getDisplayName(), actionItem.getNextPanel());
+
+            this.getInventory().setItem(slot, actionItem);
+        }
+    }
+
+    public boolean isActionItem(ItemStack itemStack)
+    {
+        return this.nextPanels.containsKey(itemStack.getItemMeta().getDisplayName());
     }
 
     public Inventory getInventory()
@@ -132,30 +167,6 @@ public class GuiInventory implements Listener
         Inventory content = Bukkit.createInventory(null, size, ChatColor.translateAlternateColorCodes('&', title));
         List<String> inventories;
 
-        ItemStack navigatorItemForward = new ItemStack(Material.GREEN_GLAZED_TERRACOTTA);
-        ItemStack navigatorItemBackward = new ItemStack(Material.RED_GLAZED_TERRACOTTA);
-
-        ItemMeta forwardMeta = navigatorItemForward.getItemMeta();
-        forwardMeta.setDisplayName("§aNächste Seite");
-        navigatorItemForward.setItemMeta(forwardMeta);
-
-        ItemMeta backwardMeta = navigatorItemBackward.getItemMeta();
-        backwardMeta.setDisplayName("§cVorherige Seite");
-        navigatorItemBackward.setItemMeta(backwardMeta);
-
-        for (int i = 0; i < content.getSize(); i++)
-        {
-            ItemStack glass = new ItemStack(Material.STAINED_GLASS_PANE);
-            ItemMeta meta = glass.getItemMeta();
-            meta.setDisplayName("§fx");
-            glass.setItemMeta(meta);
-
-            content.setItem(i, glass);
-        }
-
-        content.setItem(content.getSize() - 9 + 3, navigatorItemBackward);
-        content.setItem(content.getSize() - 9 + 5, navigatorItemForward);
-
         GuiInventory inventory = new GuiInventory(content);
 
         if (plugin.getConfig().getStringList("inventories").contains(title))
@@ -180,5 +191,17 @@ public class GuiInventory implements Listener
         plugin.reloadConfig();
 
         return inventory;
+    }
+
+    private void saveConfig()
+    {
+        try
+        {
+            config.save(configFile);
+        } catch (IOException e)
+        {
+            e.printStackTrace();
+        }
+
     }
 }
